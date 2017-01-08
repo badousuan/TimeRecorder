@@ -5,40 +5,52 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
+import android.inputmethodservice.Keyboard;
+import android.inputmethodservice.Keyboard.Key;
+import android.os.Handler;
+import android.os.Message;
 import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.KeyCharacterMap.KeyData;
+import android.view.KeyEvent;
 import android.view.View;
 import cn.yuelei.timerecorder.R;
 public class ShutterButton extends View {
     private static final String TAG = "meeSB";
+    private Context mContext;
+    private Handler mHandler;
     private boolean mIsClicked = false;
     private boolean mIsBGdrawed = false;
+    private boolean mIsDetachedFromWindow = false;
     private long mTime;
     private int mNowPointIndex = 0;
     private static int  mPointerNums = 48;
     private static double[] mCosTabs = new double[mPointerNums];
     private static double[] mSinTabs = new double[mPointerNums];
     
-    Paint mPaint = new Paint();
+    private Paint mPaint = new Paint();
     
-    Thread mThread;
+    private Thread mThread;
      
     private void  backRefresh() {
         mThread = new Thread(new Runnable() {
             
             @Override
             public void run() {
-                while (true) {
+                Log.v(TAG, "backRefresh run");
+                while (!mIsDetachedFromWindow) {
                     if (mIsClicked) {
                         if (mIsBGdrawed) {
                             mNowPointIndex++;
-                            postInvalidate();
                         }
-                        SystemClock.sleep(100);
+                        synchronized (this) {
+                            mHandler.sendEmptyMessage(0xff);
+                        }
+                       SystemClock.sleep(100);
                     }
                 }
-
+                Log.v(TAG, "backRefresh end");
             }
         });
         mThread.start();
@@ -56,30 +68,45 @@ public class ShutterButton extends View {
     public ShutterButton(Context context, AttributeSet attrs, int defStyleAttr,
             int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
+        mContext = context;
         mPaint.setAlpha(180);
         this.setBackgroundResource(R.drawable.off);
-        backRefresh();
+        registerHandler();
     }
 
     public ShutterButton(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        mContext = context;
         mPaint.setAlpha(180);
         this.setBackgroundResource(R.drawable.off);
-        backRefresh();
+        registerHandler();
     }
 
     public ShutterButton(Context context, AttributeSet attrs) {
         super(context, attrs);
+        mContext = context;
         mPaint.setAlpha(180);
         this.setBackgroundResource(R.drawable.off);
-        backRefresh();
+        registerHandler();
     }
 
     public ShutterButton(Context context) {
         super(context);
+        mContext = context;
         mPaint.setAlpha(180);
         this.setBackgroundResource(R.drawable.off);
-        backRefresh();
+        registerHandler();
+    }
+    
+    private void registerHandler() {
+        mHandler = new Handler(){
+            @Override
+            public void handleMessage(Message msg) {
+                if (msg.what == 0xff) {
+                    postInvalidate();
+                }
+            };
+        };
     }
 
     @Override
@@ -113,7 +140,7 @@ public class ShutterButton extends View {
 //                        + squireWidth, 8, 8, mPaint);
 //                drawPrinter(canvas); 
                 mIsBGdrawed = true;
-            }else
+            }else if(!mIsDetachedFromWindow)
             {
                 mPaint.setColor(Color.WHITE);
                 int p = mNowPointIndex % 48;
@@ -132,12 +159,45 @@ public class ShutterButton extends View {
         mIsClicked = !mIsClicked;
         if (mIsClicked) {
             mNowPointIndex = 0;
+            mIsDetachedFromWindow = false;
             this.setBackgroundResource(R.drawable.on);
+            backRefresh();
         }else{
             this.setBackgroundResource(R.drawable.off); 
+            mIsDetachedFromWindow = true;
         }
         
     }
+    
+    public void toggleOn() {
+        mIsClicked = true;
+        if (mIsClicked) {
+            mNowPointIndex = 0;
+            mIsDetachedFromWindow = false;
+            this.setBackgroundResource(R.drawable.on);
+            backRefresh();
+        }else{
+            this.setBackgroundResource(R.drawable.off); 
+            mIsDetachedFromWindow = true;
+        }
+        
+    }
+    
+    
+    public void toggleOff() {
+        mIsClicked = false;
+        if (mIsClicked) {
+            mNowPointIndex = 0;
+            mIsDetachedFromWindow = false;
+            this.setBackgroundResource(R.drawable.on);
+            backRefresh();
+        }else{
+            this.setBackgroundResource(R.drawable.off); 
+            mIsDetachedFromWindow = true;
+        }
+        
+    }
+    
     
     private void drawPrinter(Canvas canvas) {
         int width = canvas.getWidth();
@@ -166,5 +226,64 @@ public class ShutterButton extends View {
             }
               }
     }
+    
+    @Override
+    protected void onDetachedFromWindow() {
+        Log.v(TAG, "onDetachedFromWindow@"+this);
+        mIsDetachedFromWindow = true;
+        super.onDetachedFromWindow();
+    }
+    
+    
+    @Override
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        if (visibility==View.INVISIBLE || visibility==View.GONE) {
+            mIsDetachedFromWindow = true;
+            mIsClicked = false;
+            synchronized (this) {
+               mHandler.removeMessages(0xff); 
+            }
+            this.setBackgroundColor(0x00000000);
+            this.setBackgroundResource(R.drawable.off); 
+            Log.v(TAG, "onVisibility inv");
+        }
+    }
+    
+    
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // TODO Auto-generated method stub
+        Log.v(TAG, "onKeyDown ");
+        switch (keyCode) {
+        case KeyEvent.KEYCODE_POWER:
+            ;
+        case KeyEvent.KEYCODE_BACK:
+            ;
+        case KeyEvent.KEYCODE_HOME: {
+            mIsDetachedFromWindow = true;
+            mIsClicked = false;
+            synchronized (this) {
+                mHandler.removeMessages(0xff);
+            }
+            this.setBackgroundColor(0x00000000);
+            this.setBackgroundResource(R.drawable.off);
+            break;
+        }
+
+        default:
+            break;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+    
+    
+    public boolean isClicked() {
+        return mIsClicked;
+    }
+    
+    
+    
+   
 
 }
