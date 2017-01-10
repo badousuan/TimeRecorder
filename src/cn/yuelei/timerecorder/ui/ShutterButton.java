@@ -17,7 +17,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import cn.yuelei.timerecorder.R;
 public class ShutterButton extends View {
-    private static final String TAG = "meeSB";
+    private static final String TAG = "SB";
     private Context mContext;
     private Handler mHandler;
     private boolean mIsClicked = false;
