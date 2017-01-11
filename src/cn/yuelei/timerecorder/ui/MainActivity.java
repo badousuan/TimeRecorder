@@ -3,11 +3,14 @@ package cn.yuelei.timerecorder.ui;
 import java.io.IOException;
 
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.R.bool;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.Camera;
+import android.hardware.Camera.Parameters;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -26,6 +29,7 @@ public class MainActivity extends Activity {
     private SurfaceView mSurfaceView;
     private SurfaceHolder mSurfaceHolder;
     private CameraWrapper mCameraWrapper;
+    private boolean mIsShutButtonClicked = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,8 +39,13 @@ public class MainActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);  
         setContentView(R.layout.activity_main);
         mContext = this;
+        initShutterButton();
+        initSurface();
+    }
+
+    private void initShutterButton() {
         mButton = (ShutterButton)findViewById(R.id.button1);
-        mButton.setOnTouchListener(new View.OnTouchListener() {
+        /*mButton.setOnTouchListener(new View.OnTouchListener() {
             
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -44,14 +53,44 @@ public class MainActivity extends Activity {
                 mButton.invalidate();
                 return false;
             }
-        });
+        });*/
         mButton.setFocusable(true);
-        initSurface();
+        mButton.setOnClickListener(new View.OnClickListener() {
+            
+            @Override
+            public void onClick(View v) {
+                Log.v(TAG, "s on clicked");
+                if (!mIsShutButtonClicked) {
+                    mButton.toggleOn();
+                    mButton.invalidate();
+                    mCameraWrapper.setOnPreviewAvailable(new CameraWrapper.OnPreviewAvailableListener() {
+                        
+                        @Override
+                        public void onPreviewAvailable(long timeUs, byte[] yuvBuff, int width,
+                                int height, int format) {
+                            Log.v(TAG, "preview@"+ timeUs + " w/h=" + width+"/"+height);
+                            yuvBuff = null;
+                            
+                        }
+                    });
+                    mCameraWrapper.startPreview();
+                    mIsShutButtonClicked = true;
+                    test();
+                }else{
+                    mButton.toggleOff();
+                    mButton.invalidate();
+                    mCameraWrapper.stopPreview();
+                    mIsShutButtonClicked = false;
+                }
+                
+            }
+        });
     }
     
     private void initSurface(){
         if (mSurfaceView == null) {
             mSurfaceView = (SurfaceView)findViewById(R.id.surfaceView1);
+           
         }
         
         if (mSurfaceHolder == null) {
@@ -89,6 +128,7 @@ public class MainActivity extends Activity {
             parameters.setPreviewFormat(ImageFormat.NV21);
             parameters.setPreviewFpsRange(10000, 10000);
             parameters.setPreviewSize(1920, 1080);
+            //parameters.setFocusMode(Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
             mCameraWrapper.setParameters(parameters); 
             mCameraWrapper.setDisplayOrientation(90);
             mCameraWrapper.startPreview(); 
@@ -97,6 +137,9 @@ public class MainActivity extends Activity {
                 @Override
                 public void onAutoFocus(boolean success, Camera camera) {
                     Log.v(TAG, "Auto focus " + success);
+                    if (success) {
+                        mCameraWrapper.getCamera().cancelAutoFocus();
+                    }
                 }
             }); 
         } catch (Exception e) {
@@ -127,5 +170,52 @@ public class MainActivity extends Activity {
         mButton.toggleOff();
         return super.onKeyDown(keyCode, event);
     }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mIsShutButtonClicked = false;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mIsShutButtonClicked = false;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mIsShutButtonClicked = false;
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mIsShutButtonClicked = false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mIsShutButtonClicked = false;
+    }
+    
+    private void test() {
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                for (int i = 0; i < 50; i++) {
+                    byte[] previewData = new byte[1920 * 1080 * 3 / 2];
+                    mCameraWrapper.signalForPreview(previewData);
+                    Log.v(TAG, "apply for preview " + i);
+                    SystemClock.sleep(500);
+                }
+            }
+        }).start();
+
+    }
+    
 
 }

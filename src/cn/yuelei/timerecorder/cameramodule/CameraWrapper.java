@@ -49,6 +49,10 @@ public class CameraWrapper {
     public Parameters getParameters() {
         return mCamera.getParameters();
     }
+    
+    public Camera getCamera() {
+        return mCamera;
+    }
 
     public void setParameters(Parameters parameters) {
         mCamera.setParameters(parameters);
@@ -65,7 +69,6 @@ public class CameraWrapper {
         } else {
             mCamera.autoFocus(null);
         }
-
     }
     
     public void setDisplayOrientation(int degrees) {
@@ -77,6 +80,10 @@ public class CameraWrapper {
 
     public void setOnPreviewAvailable(OnPreviewAvailableListener lsr) {
         mListener = lsr;
+    }
+    
+    public void signalForPreview(byte[] callbackBuffer) {
+        mCamera.addCallbackBuffer(callbackBuffer);
     }
 
     @SuppressWarnings("deprecation")
