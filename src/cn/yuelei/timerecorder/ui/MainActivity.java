@@ -1,8 +1,11 @@
 package cn.yuelei.timerecorder.ui;
 
 import java.io.IOException;
+import java.sql.Date;
+import java.sql.Time;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.R.bool;
 import android.app.Activity;
@@ -20,6 +23,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.TextView;
 import cn.yuelei.timerecorder.R;
 import cn.yuelei.timerecorder.cameramodule.CameraWrapper;
 public class MainActivity extends Activity {
@@ -28,8 +32,11 @@ public class MainActivity extends Activity {
     private ShutterButton mButton;
     private SurfaceView mSurfaceView;
     private SurfaceHolder mSurfaceHolder;
+    private TextView mTimeView;
     private CameraWrapper mCameraWrapper;
     private boolean mIsShutButtonClicked = false;
+    private TimeUpdater mTimeUpdater;
+    private Handler mHandler;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,6 +46,8 @@ public class MainActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);  
         setContentView(R.layout.activity_main);
         mContext = this;
+        mHandler = new Handler();
+        mTimeView = (TextView)findViewById(R.id.recorded_time);
         initShutterButton();
         initSurface();
     }
@@ -63,6 +72,7 @@ public class MainActivity extends Activity {
                 if (!mIsShutButtonClicked) {
                     mButton.toggleOn();
                     mButton.invalidate();
+                    openUpdater();
                     mCameraWrapper.setOnPreviewAvailable(new CameraWrapper.OnPreviewAvailableListener() {
                         
                         @Override
@@ -73,13 +83,12 @@ public class MainActivity extends Activity {
                             
                         }
                     });
-                    mCameraWrapper.startPreview();
                     mIsShutButtonClicked = true;
-                    test();
+                    //test();
                 }else{
                     mButton.toggleOff();
                     mButton.invalidate();
-                    mCameraWrapper.stopPreview();
+                    hideUpdater();
                     mIsShutButtonClicked = false;
                 }
                 
@@ -150,6 +159,7 @@ public class MainActivity extends Activity {
     
     private void closeCamera(){
         if (mCameraWrapper != null) {
+            mCameraWrapper.stopPreview();
             mCameraWrapper.release();
             mCameraWrapper = null;
         }
@@ -217,5 +227,44 @@ public class MainActivity extends Activity {
 
     }
     
+    private void openUpdater() {
+        if (mTimeUpdater != null) {
+            mTimeUpdater.stop();
+            mTimeUpdater = null;
+        }
+        if (mTimeView == null) {
+            mTimeView = (TextView) findViewById(R.id.recorded_time);
+        }
+        mTimeView.setVisibility(View.VISIBLE);
+        mTimeUpdater = new TimeUpdater(mContext, 1000,
+                new TimeUpdater.OnUpdateListener() {
+                    @Override
+                    public void onUpdate(String time) {
+                        final String nowtime = time;
+                        mHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (mTimeView != null) {
+                                    mTimeView.setText(nowtime);
+                                }
+                            }
+                        });
 
+                    }
+                });
+        mTimeUpdater.start();
+    }
+
+    private void hideUpdater() {
+        if (mTimeUpdater != null) {
+            mTimeUpdater.stop();
+        }
+        if (mTimeView != null) {
+            mTimeView.setVisibility(View.INVISIBLE);
+        }
+    }
+    
+
+    
+    
 }
