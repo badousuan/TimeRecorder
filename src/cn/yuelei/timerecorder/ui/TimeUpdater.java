@@ -10,8 +10,9 @@ public class TimeUpdater {
     private Context mContext;
     private int mIntervalMs;
     private Thread mThread;
-    private boolean mShouldStop = false;
-    private OnUpdateListener mUpdateListener; 
+    private boolean mIsStoped = false;
+    private boolean mIsRunning = false;
+    private OnUpdateListener mUpdateListener;
     interface OnUpdateListener{
         void onUpdate(String time);
     }
@@ -23,13 +24,15 @@ public class TimeUpdater {
             int counter = 0;
             @Override
             public void run() {
-                while (!mShouldStop) {
+                mIsRunning = true;
+                while (!mIsStoped) {
                     if (mUpdateListener != null) {
                         mUpdateListener.onUpdate(formatedSecond(counter));
                     }
                     counter++;
                     SystemClock.sleep(mIntervalMs);
                 }
+                mIsRunning = false;
             }
         });
     }
@@ -42,13 +45,20 @@ public class TimeUpdater {
         return mIntervalMs;
     }
     
-    public void start(){
-        mThread.start();
+    public void start() {
+        if (!mIsRunning) {
+            mIsRunning = true;
+            mThread.start();
+        }
     }
-    
-    public void stop(){
-        mShouldStop = true;
-        mThread = null;
+
+    public void stop() {
+        if (mIsRunning) {
+            mIsRunning = false;
+            mIsStoped = true;
+            mUpdateListener = null;
+            mThread = null;
+        }
     }
     
     public static String formatedSecond(int seconds) {

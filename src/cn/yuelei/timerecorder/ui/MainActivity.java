@@ -203,6 +203,9 @@ public class MainActivity extends Activity {
     protected void onStop() {
         super.onStop();
         mIsShutButtonClicked = false;
+        mButton.toggleOff();
+        mButton.invalidate();
+        hideUpdater();
     }
 
     @Override
